@@ -75,6 +75,8 @@ def getConfigFile(mypath):
 
 parser = argparse.ArgumentParser(prog='Unified Mount', description='Unified command line mount interface')
 parser.add_argument('-p', '--path', help='Config file/dir path')
+parser.add_argument('-m', '--mount', help='Disable mount toggle and force to mount.', action='store_true')
+parser.add_argument('-u', '--umount', help='Disable mount toggle and force to unmount.', action='store_true')
 config = parser.parse_args()
 
 try:
@@ -113,9 +115,11 @@ try:
 
 	# If the config is aleady mounted, unmount it
 	if is_mounted(localDir):
-		umount(localDir)
+		if not config.mount is True:
+			umount(localDir)
 	else:
-		mount(mountType, user, password, localDir, server, serverDir, uid, gid)
+		if not config.umount is True:
+			mount(mountType, user, password, localDir, server, serverDir, uid, gid)
 
 except Exception as e:
 	print(str(e))

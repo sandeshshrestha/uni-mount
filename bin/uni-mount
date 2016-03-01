@@ -25,21 +25,25 @@ import sys
 def is_mounted(localDir):
 	return os.path.ismount(localDir)
 
-def mount(mountType, user, password, localDir, serverPath, uid, gid):
+def mount(mountType, user, password, localDir, server, serverDir, uid, gid):
+	#Create directory is not exists
 	if mountType == 'cifs':
 		if not os.path.exists(localDir):
 			os.makedirs(localDir)
 		option = "user=%s,pass=%s,uid=%s,gid=%s" % (user,password,uid,gid)
+		serverPath = '//' + server + '/' + serverDir
 		status = subprocess.call(["mount", "-t", "cifs", "-o", option, serverPath, localDir])
 		if status == 0:
 			print(localDir + " mounted")
 		else:
 			print(localDir + " mounting failed")
 			clean(localDir)
-	elif data['type'] == 'somethingelse':
-		print('somethingelse')
+	elif data['type'] == 'ssh':
+		option = "%s@%s:%s½" % (user, server, serverPath)
+		status = subprocess.call(["sshfs", option, localDir])
 	else:
 		print('No type defined.')
+		clean(localDir)
 
 def umount(localDir):
 	status = subprocess.call(["umount", "-l", localDir])
@@ -70,7 +74,7 @@ def getConfigFile(mypath):
 
 
 parser = argparse.ArgumentParser(prog='Unified Mount', description='Unified command line mount interface')
-parser.add_argument('-p', '--path', help='Config file/dir path', required=True)
+parser.add_argument('-p', '--path', help='Config file/dir path')
 config = parser.parse_args()
 
 try:
@@ -92,7 +96,6 @@ try:
 	localDir = data.get('localDir')
 	server = data.get('server')
 	serverDir = data.get('serverDir')
-	serverPath = '//' + server + '/' + serverDir
 
 	uid = data.get('uid')
 	gid = data.get('gid')
@@ -112,7 +115,7 @@ try:
 	if is_mounted(localDir):
 		umount(localDir)
 	else:
-		mount(mountType, user, password, localDir, serverPath, uid, gid)
+		mount(mountType, user, password, localDir, server, serverDir, uid, gid)
 
 except Exception as e:
 	print(str(e))

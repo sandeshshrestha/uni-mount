@@ -40,7 +40,7 @@ def mount(mountType, user, password, localDir, server, serverDir, uid, gid):
 		else:
 			print(localDir + " mounting failed")
 			clean(localDir)
-	elif data['type'] == 'ssh':
+	elif mountType == 'ssh':
 		if not os.path.exists(localDir):
 			os.makedirs(localDir)
 		option = "%s@%s:/%s" % (user, server, serverDir)

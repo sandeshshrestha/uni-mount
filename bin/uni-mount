@@ -126,7 +126,11 @@ try:
 	if is_mounted(localDir):
 		if not config.mount is True:
 			umount(localDir)
-	else:
+	else: 
+		# If the localDir exists, we try to unmount
+		if os.path.exists(localDir):
+			umount(localDir)
+
 		if not config.umount is True:
 			mount(mountType, user, password, localDir, server, serverDir, uid, gid)
 

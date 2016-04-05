@@ -24,44 +24,7 @@ import glob
 import re
 import sys
 
-def is_mounted(localDir):
-	return os.path.ismount(localDir)
 
-def mount(mountType, user, password, localDir, server, serverDir, uid, gid):
-	#Create directory is not exists
-	if mountType == 'cifs':
-		if not os.path.exists(localDir):
-			os.makedirs(localDir)
-		option = "user=%s,pass=%s,uid=%s,gid=%s" % (user,password,uid,gid)
-		serverPath = '//' + server + '/' + serverDir
-		status = subprocess.call(["mount", "-t", "cifs", "-o", option, serverPath, localDir])
-		if status == 0:
-			print(localDir + " mounted")
-		else:
-			print(localDir + " mounting failed")
-			clean(localDir)
-	elif mountType == 'ssh':
-		if not os.path.exists(localDir):
-			os.makedirs(localDir)
-		option = "%s@%s:/%s" % (user, server, serverDir)
-		status = subprocess.call(["sshfs", option, localDir, "-o", "idmap=user,allow_other,reconnect"])
-		if status == 0:
-			print(localDir + " mounted")
-		else:
-			print(localDir + " mounting failed")
-			clean(localDir)
-	else:
-		print('No type defined.')
-		clean(localDir)
-
-def umount(localDir):
-	status = subprocess.call(["umount", "-l", localDir])
-	if status == 0:
-		print(localDir + " unmounted")
-		clean(localDir)
-
-def clean(localDir):
-	os.rmdir(localDir)
 
 def getConfigFile(mypath):
 	configFiles = glob.glob(mypath+"/*.conf")
@@ -72,14 +35,81 @@ def getConfigFile(mypath):
 		sys.exit(1)
 
 	for index, configFile in enumerate(configFiles):
-		print("%s. %s" % (index, re.search(r"\/([\w-]+).conf$", configFile).group(1)))
-	
+		server_name = re.search(r"\/([\w-]+).conf$", configFile).group(1);
+		if is_mounted(json.load(open(configFile))):
+			print("{}. {} (*)".format(
+				index,
+				server_name
+			))
+		else:
+			print("{}. {}".format(
+				index,
+				server_name
+			))
+
 	try:
 		fileIndex = int(input('\n\nSelect the config to mount: '))
 		return configFiles[fileIndex]
-	except IndexError:
+	except (ValueError,IndexError):
 		print("\n\n>>> Invalid Input\n\n")
 		return getConfigFile(mypath)
+
+
+def mount(o_config):
+
+	mountType = o_config.get('type')
+	user = o_config.get('user')
+	password = o_config.get('pass')
+	localDir = o_config.get('localDir')
+	server = o_config.get('server')
+	serverDir = o_config.get('serverDir')
+	uid = o_config.get('uid')
+	gid = o_config.get('gid')
+
+	# If the localDir exists, we try to unmount
+	# Need to check isfile as well, because the mounted folder is treated as file in some weird cases.
+	if os.path.exists(localDir) or os.path.isfile(localDir):
+		umount(o_config)
+
+	#Create directory is it doesn't exists
+	if not os.path.exists(localDir):
+		os.makedirs(localDir)
+
+	if mountType == 'cifs':
+		option = "user=%s,pass=%s,uid=%s,gid=%s" % (user,password,uid,gid)
+		serverPath = '//' + server + '/' + serverDir
+		status = subprocess.call(["mount", "-t", "cifs", "-o", option, serverPath, localDir])
+	elif mountType == 'ssh':
+		option = "%s@%s:/%s" % (user, server, serverDir)
+		status = subprocess.call(["sshfs", option, localDir, "-o", "idmap=user,allow_other,reconnect"])
+	else:
+		print('No type defined.')
+
+	handle_mount_status(o_config, status)
+
+
+def umount(o_config):
+	localDir = o_config.get('localDir')
+	status = subprocess.call(["umount", "-l", localDir])
+	if status == 0:
+		print(localDir + " unmounted")
+		clean(o_config)
+
+
+def handle_mount_status(o_config, status):
+	if status == 0:
+		print(o_config['localDir'] + " mounted")
+	else:
+		print(o_config['localDir'] + " mounting failed")
+		clean(o_config)
+
+
+def is_mounted(o_config):
+	return os.path.ismount(o_config.get('localDir'))
+
+
+def clean(o_config):
+	os.rmdir(o_config.get('localDir'))
 
 
 parser = argparse.ArgumentParser(prog='Unified Mount', description='Unified command line mount interface')
@@ -95,44 +125,29 @@ try:
 	if os.path.isdir(file) is True:
 		file = getConfigFile(file)
 
-	data = json.load(open(file))
+	o_config = json.load(open(file))
 
-	mountType = data.get('type')
-
-	user = data.get('user')
-	password = data.get('pass')
-	if password is None:
-		password = input('Please enter server password: ')
-
-	localDir = data.get('localDir')
-	server = data.get('server')
-	serverDir = data.get('serverDir')
-
-	uid = data.get('uid')
-	gid = data.get('gid')
+	# Ask for password if it is not set
+	if o_config.get('pass') is None:
+		o_config['pass'] = input('Please enter server password: ')
 
 	#Trying to figureout 'uid' and 'gid'
-	if uid is None or gid is None:
+	if o_config.get('uid') is None or o_config.get('gid') is None:
 		# Trying to get 'systemUser', if not use 'user'
 		from pwd import getpwnam
-		systemUser = data.get('systemUser')
-		if systemUser is None:
-			systemUser = data.get('user')
-		userDetails = getpwnam(systemUser)
-		uid = userDetails.pw_uid
-		gid = userDetails.pw_gid
+		if o_config.get('systemUser') is None:
+			o_config['systemUser'] = o_config['user']
+		userDetails = getpwnam(o_config['systemUser'])
+		o_config['uid'] = userDetails.pw_uid
+		o_config['gid'] = userDetails.pw_gid
 
 	# If the config is aleady mounted, unmount it
-	if is_mounted(localDir):
+	if is_mounted(o_config):
 		if not config.mount is True:
-			umount(localDir)
-	else: 
-		# If the localDir exists, we try to unmount
-		if os.path.exists(localDir):
-			umount(localDir)
-
+			umount(o_config)
+	else:
 		if not config.umount is True:
-			mount(mountType, user, password, localDir, server, serverDir, uid, gid)
+			mount(o_config)
 
 except Exception as e:
 	print(str(e))

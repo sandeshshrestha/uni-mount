@@ -9,6 +9,7 @@
 	"pass": "",
 	"systemUser": "",
 	"server": "ip address/hostname",
+	"port": "22",
 	"serverDir": "server path",
 	"localDir": "Full path",
 	"uid": "$UID",
@@ -62,6 +63,9 @@ def mount(o_config):
 	password = o_config.get('pass')
 	localDir = o_config.get('localDir')
 	server = o_config.get('server')
+	port = o_config.get('port')
+	if port is None:
+		port = "22"
 	serverDir = o_config.get('serverDir')
 	uid = o_config.get('uid')
 	gid = o_config.get('gid')
@@ -81,7 +85,7 @@ def mount(o_config):
 		status = subprocess.call(["mount", "-t", "cifs", "-o", option, serverPath, localDir])
 	elif mountType == 'ssh':
 		option = "%s@%s:/%s" % (user, server, serverDir)
-		status = subprocess.call(["sshfs", option, localDir, "-o", "idmap=user,allow_other,reconnect"])
+		status = subprocess.call(["sshfs", option, localDir, "-p", port, "-o", "idmap=user,allow_other,reconnect"])
 	else:
 		print('No type defined.')
 

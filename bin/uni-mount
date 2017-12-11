@@ -80,7 +80,7 @@ def mount(o_config):
 		os.makedirs(localDir)
 
 	if mountType == 'cifs':
-		option = "user=%s,pass=%s,uid=%s,gid=%s" % (user,password,uid,gid)
+		option = "user=%s,pass=%s,uid=%s,gid=%s,vers=1.0" % (user,password,uid,gid)
 		serverPath = '//' + server + '/' + serverDir
 		status = subprocess.call(["mount", "-t", "cifs", "-o", option, serverPath, localDir])
 	elif mountType == 'ssh':

@@ -85,7 +85,7 @@ def mount(o_config):
 		status = subprocess.call(["mount", "-t", "cifs", "-o", option, serverPath, localDir])
 	elif mountType == 'ssh':
 		option = "%s@%s:/%s" % (user, server, serverDir)
-		status = subprocess.call(["sshfs", option, localDir, "-p", port, "-o", "idmap=user,allow_other,reconnect"])
+		status = subprocess.call(["sshfs", option, localDir, "-p", port, "-o", "idmap=user,reconnect"])
 	else:
 		print('No type defined.')
 
@@ -132,7 +132,7 @@ try:
 	o_config = json.load(open(file))
 
 	# Ask for password if it is not set
-	if o_config.get('pass') is None:
+	if o_config.get('pass') is None and o_config.get('type') != 'ssh':
 		o_config['pass'] = input('Please enter server password: ')
 
 	#Trying to figureout 'uid' and 'gid'
